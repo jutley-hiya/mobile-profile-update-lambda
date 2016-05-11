@@ -1,25 +1,19 @@
 package com.hiya.mobileprofile
 
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.dynamodbv2.model.{AttributeValue, AttributeAction, AttributeValueUpdate, UpdateItemRequest}
-import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBClient, AmazonDynamoDB}
-import com.typesafe.config.ConfigFactory
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
+import com.amazonaws.services.dynamodbv2.model.{AttributeAction, AttributeValue, AttributeValueUpdate, UpdateItemRequest}
+import com.typesafe.config.Config
 
 import scala.collection.JavaConverters._
 
-class DynamoDbMobileProfileRepository extends MobileProfileRepository {
-
-  val region = Regions.getCurrentRegion
-  val dynamoDB : AmazonDynamoDB = new AmazonDynamoDBClient().withRegion(region)
-  val config = ConfigFactory.load("mobile-profile-update.conf")
-
+class DynamoDbMobileProfileRepository(dynamoDB: AmazonDynamoDB, config: Config) extends MobileProfileRepository {
   val tableConf = config.getConfig("mobile-profile-update.table")
   val table = tableConf.getString("name")
   val key = tableConf.getString("key")
   val column = tableConf.getString("column")
 
   def save(profile: MobileProfile): Unit = {
-    println("Updating Region " + region)
+
     val request: UpdateItemRequest = createUpdateRequest(profile)
     println("Sending request " + request)
     dynamoDB.updateItem(request)
