@@ -31,9 +31,9 @@ class CloudWatchMonitoringTest extends FunSpec with ShouldMatchers with MockFact
         .withNamespace(expectedNamespace)
         .withMetricData(Seq[MetricDatum](dataPoint).asJava)
       (client.putMetricData _).expects(expectedRequest).once()
-          // When: I write a metric
+      // Expect: I write a metric and
+      //         my metric is written in my namespace with metricdata in client
       monitor.writeMetric(metric, value)
-      // Then: My metric is written in my namespace with metricdata in client
     }
 
     it("rejects null client") {

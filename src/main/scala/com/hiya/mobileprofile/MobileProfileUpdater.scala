@@ -40,7 +40,7 @@ object MobileProfileUpdater {
 
   lazy val repository: MobileProfileRepository =
     new RecoverableMobileProfileRepository(
-      new DynamoDbMobileProfileRepository(dynamoDB, config), recoveryStrategy)
+      new DynamoDbMobileProfileRepository(dynamoDB, config.getConfig("mobile-profile-update.table")), recoveryStrategy)
 
   lazy val deserializer: Deserializer[String, MobileProfile] = new MobileProfileDeserializer
 }
