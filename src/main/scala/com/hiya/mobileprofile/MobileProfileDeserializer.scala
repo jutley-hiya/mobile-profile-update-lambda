@@ -11,6 +11,7 @@ class MobileProfileDeserializer extends Deserializer[String, MobileProfile] with
   }
 
   def deserialize(profileAsJson: String): MobileProfile = {
+    require(profileAsJson != null, "profileAsJson must not be null")
     val stream = new ByteArrayInputStream(profileAsJson.getBytes(StandardCharsets.UTF_8));
     val profile = scalaMapper.readValue(stream, classOf[MobileProfile])
     writeLog("Got profile " + profile)

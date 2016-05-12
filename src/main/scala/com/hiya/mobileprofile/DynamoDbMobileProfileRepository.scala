@@ -7,12 +7,15 @@ import com.typesafe.config.Config
 import scala.collection.JavaConverters._
 
 class DynamoDbMobileProfileRepository(dynamoDB: AmazonDynamoDB, config: Config) extends MobileProfileRepository with Logging {
-  val tableConf = config.getConfig("mobile-profile-update.table")
-  val table = tableConf.getString("name")
-  val key = tableConf.getString("key")
-  val column = tableConf.getString("column")
+  require(dynamoDB != null, "dynamo client must not be null")
+  require(config != null, "config must not be null")
+
+  val table = config.getString("name")
+  val key = config.getString("key")
+  val column = config.getString("column")
 
   def save(profile: MobileProfile): Unit = {
+    require(profile != null, "profile must not be null")
 
     val request: UpdateItemRequest = createUpdateRequest(profile)
     writeLog("Sending request " + request)
@@ -25,7 +28,7 @@ class DynamoDbMobileProfileRepository(dynamoDB: AmazonDynamoDB, config: Config) 
       .withValue(new AttributeValue().withS(profile.profile))
     new UpdateItemRequest()
       .withTableName(table)
-      .withKey(Map((key, new AttributeValue().withS(profile.phoneNumber))).asJava)
-      .withAttributeUpdates(Map((column, update)).asJava)
+      .withKey(Map(key -> new AttributeValue().withS(profile.phoneNumber)).asJava)
+      .withAttributeUpdates(Map(column -> update).asJava)
   }
 }
