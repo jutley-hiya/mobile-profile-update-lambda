@@ -32,7 +32,9 @@ object MobileProfileUpdater {
   lazy val monitor: Monitoring = new CloudWatchMonitoring(cloudWatchClient, config)
 
   lazy val recoveryStrategy = PartialFunction[Throwable, Unit] {
-    case NonFatal(t) => monitor.writeMetric("WriteFailure", 1.0)
+    case NonFatal(t) =>
+      monitor.writeMetric("WriteFailure", 1.0)
+      throw t
   }
 
   lazy val region = Regions.getCurrentRegion
