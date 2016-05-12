@@ -6,7 +6,7 @@ import com.typesafe.config.Config
 
 import scala.collection.JavaConverters._
 
-class DynamoDbMobileProfileRepository(dynamoDB: AmazonDynamoDB, config: Config) extends MobileProfileRepository {
+class DynamoDbMobileProfileRepository(dynamoDB: AmazonDynamoDB, config: Config) extends MobileProfileRepository with Logging {
   val tableConf = config.getConfig("mobile-profile-update.table")
   val table = tableConf.getString("name")
   val key = tableConf.getString("key")
@@ -15,7 +15,7 @@ class DynamoDbMobileProfileRepository(dynamoDB: AmazonDynamoDB, config: Config) 
   def save(profile: MobileProfile): Unit = {
 
     val request: UpdateItemRequest = createUpdateRequest(profile)
-    println("Sending request " + request)
+    writeLog("Sending request " + request)
     dynamoDB.updateItem(request)
   }
 

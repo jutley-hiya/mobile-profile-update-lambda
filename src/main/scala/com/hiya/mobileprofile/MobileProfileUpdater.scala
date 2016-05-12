@@ -13,16 +13,16 @@ import scala.util.control.NonFatal
 /**
   * Inspired from https://aws.amazon.com/blogs/compute/writing-aws-lambda-functions-in-scala/
   */
-class MobileProfileUpdater extends MobileProfileDeserializer {
+class MobileProfileUpdater extends Deserializer with Logging {
   import MobileProfileUpdater._
 
   def update(event: SNSEvent): Unit = {
     val messages: Seq[String] = event.getRecords.asScala.toSeq.map(record => record.getSNS.getMessage)
     messages.foreach { profileAsJson =>
-      repository.save(deserializeMessage(profileAsJson))
+      repository.save(deserialize(profileAsJson))
     }
-    val cutePrint = messages.asJava
-    println(cutePrint)
+    val cutePrint = messages
+    writeLog(cutePrint:_*)
   }
 }
 
