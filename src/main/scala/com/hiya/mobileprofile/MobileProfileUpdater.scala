@@ -1,72 +1,46 @@
 package com.hiya.mobileprofile
 
-import java.io.ByteArrayInputStream
-import java.nio.charset.StandardCharsets
-import java.util.concurrent.{TimeUnit}
-
-import com.amazonaws.regions.{Region, Regions}
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient
-import com.amazonaws.services.dynamodbv2.model._
+import com.amazonaws.regions.Regions
+import com.amazonaws.services.cloudwatch.{AmazonCloudWatchClient, AmazonCloudWatch}
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBClient, AmazonDynamoDB}
+import com.amazonaws.services.lambda.runtime.events.SNSEvent
+import com.typesafe.config.ConfigFactory
 
 import scala.collection.JavaConverters._
-import com.amazonaws.services.lambda.runtime.events.SNSEvent
+import scala.util.control.NonFatal
 
-case class MobileProfile(phoneNumber: String, profile: String)
 
 /**
   * Inspired from https://aws.amazon.com/blogs/compute/writing-aws-lambda-functions-in-scala/
   */
-class MobileProfileUpdater {
-
-  //TODO: get from Typesafe config
-  val table = "caller_ids"
-  val dynamoDB = new AmazonDynamoDBAsyncClient()
-  val regions = List(Regions.US_WEST_2, Regions.EU_CENTRAL_1, Regions.AP_SOUTHEAST_1, Regions.AP_SOUTHEAST_2, Regions.SA_EAST_1)
-  val timeout = 3
-
-  val scalaMapper = {
-    import com.fasterxml.jackson.databind.ObjectMapper
-    import com.fasterxml.jackson.module.scala.DefaultScalaModule
-    new ObjectMapper().registerModule(new DefaultScalaModule)
-  }
+class MobileProfileUpdater extends Logging {
+  import MobileProfileUpdater._
 
   def update(event: SNSEvent): Unit = {
-    val result = event.getRecords.asScala.map(record => record.getSNS.getMessage)
-    result.map( profileAsJson => {
-      deserializeMessageAndUpdate(profileAsJson)
-    })
-
-    val cutePrint = result.asJava
-    println(cutePrint)
-  }
-
-  def deserializeMessageAndUpdate(profileAsJson: String): List[UpdateItemResult] = {
-    val stream = new ByteArrayInputStream(profileAsJson.getBytes(StandardCharsets.UTF_8));
-    val profile = scalaMapper.readValue(stream, classOf[MobileProfile])
-    println("Got profile " + profile)
-    regions.map {
-      updateRegionsWithProfile(profile)
+    val messages: Seq[String] = event.getRecords.asScala.toSeq.map(record => record.getSNS.getMessage)
+    messages.foreach { profileAsJson =>
+      repository.save(deserializer.deserialize(profileAsJson))
     }
+    val cutePrint = messages
+    writeLog(cutePrint:_*)
+  }
+}
+
+object MobileProfileUpdater {
+  lazy val config = ConfigFactory.load("mobile-profile-update.conf")
+  lazy val cloudWatchClient : AmazonCloudWatch = new AmazonCloudWatchClient()
+  lazy val monitor: Monitoring = new CloudWatchMonitoring(cloudWatchClient, config)
+
+  lazy val recoveryStrategy = PartialFunction[Throwable, Unit] {
+    case NonFatal(t) => monitor.writeMetric("WriteFailure", 1.0)
   }
 
-  def updateRegionsWithProfile(profile: MobileProfile): (Regions) => UpdateItemResult = {
-    r =>
-      val region = Region.getRegion(r)
-      println("Updating Region " + region)
-      dynamoDB.setRegion(region)
-      val update = new AttributeValueUpdate().withAction(AttributeAction.PUT).withValue(new AttributeValue().withS(profile.profile))
-      val request: UpdateItemRequest = createUpdateRequest(profile, update)
-      println("Sending request " + request)
-      //TODO: exception handling on failure
-      dynamoDB.updateItemAsync(request).get(timeout, TimeUnit.MINUTES)
-  }
+  lazy val region = Regions.getCurrentRegion
+  lazy val dynamoDB : AmazonDynamoDB = new AmazonDynamoDBClient().withRegion(region)
 
-  def createUpdateRequest(profile: MobileProfile, update: AttributeValueUpdate): UpdateItemRequest = {
-    val request = new UpdateItemRequest()
-    request.setTableName(table)
-    //TODO: externalize config
-    request.setKey(Map(("phone_number", new AttributeValue().withS(profile.phoneNumber))).asJava)
-    request.setAttributeUpdates(Map(("mobile_profile", update)).asJava)
-    request
-  }
+  lazy val repository: MobileProfileRepository =
+    new RecoverableMobileProfileRepository(
+      new DynamoDbMobileProfileRepository(dynamoDB, config), recoveryStrategy)
+
+  lazy val deserializer: Deserializer[String, MobileProfile] = new MobileProfileDeserializer
 }
