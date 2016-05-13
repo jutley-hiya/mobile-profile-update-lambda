@@ -1,16 +1,13 @@
-name := "mobile-profile-update"
+name := "mobile-profile-update-lambda"
 
-version := "0.11"
+organization := "com.hiya"
+
+version := "0.0.1"
 
 scalaVersion := "2.11.8"
 
-libraryDependencies += "com.amazonaws" % "aws-java-sdk-cloudwatch" % "1.10.76"
-libraryDependencies += "com.amazonaws" % "aws-java-sdk-core" % "1.10.76"
-libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "1.2.0"
-libraryDependencies += "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.5.2"
-libraryDependencies += "com.typesafe" % "config" % "1.2.1"
+resolvers += "Hiya Artifacts" at "s3://hiya-artifact-repository"
 
-libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.6" % "test"
 libraryDependencies += "org.scalamock" % "scalamock-scalatest-support_2.11" % "3.2.2" % "test"
 
 
