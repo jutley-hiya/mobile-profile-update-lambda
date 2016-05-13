@@ -16,6 +16,6 @@ import scala.util.control.NonFatal
 class MobileProfileUpdater {
   def update(event: SNSEvent): Unit = {
     val messages: Seq[String] = event.getRecords.asScala.toSeq.map(record => record.getSNS.getMessage)
-    MobileProfileAggregateRoot.writeMessages(messages)
+    MobileProfileUpdateAggregateRoot.writeMessages(messages)
   }
 }
