@@ -2,8 +2,8 @@ package com.hiya.mobileprofile
 
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClient}
-import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBClient}
-import com.typesafe.config.ConfigFactory
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
+import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.util.control.NonFatal
 
@@ -12,34 +12,41 @@ import scala.util.control.NonFatal
   * http://martinfowler.com/bliki/DDD_Aggregate.html
   * http://blog.sapiensworks.com/post/2012/04/18/DDD-Aggregates-And-Aggregates-Root-Explained.aspx
   */
-object MobileProfileAggregateRoot extends Logging {
-  private lazy val config = ConfigFactory.load("mobile-profile-update.conf")
-  private lazy val cloudWatchClient : AmazonCloudWatch = new AmazonCloudWatchClient()
-  private lazy val monitor: Monitoring = new CloudWatchMonitoring(cloudWatchClient, config.getConfig("mobile-profile-update.metrics"))
+object MobileProfileUpdateAggregateRoot extends MobileProfileUpdateAggregateRootBlueprint{
+  override val config: Config = ConfigFactory.load("mobile-profile-update.conf")
 
-  private lazy val recoveryStrategy = PartialFunction[Throwable, Unit] {
+  override val deserializer: Deserializer[String, MobileProfile] = new MobileProfileDeserializer
+
+  override val log: Logging = new Logging {}
+
+  val cloudWatchClient : AmazonCloudWatch = new AmazonCloudWatchClient()
+  override val monitor: Monitoring = new CloudWatchMonitoring(cloudWatchClient, config.getConfig("mobile-profile-update.metrics"))
+
+  val region = Regions.fromName(System.getenv("AWS_DEFAULT_REGION"))
+  val dynamoDB = new AmazonDynamoDBClient().withRegion(region)
+  val dynamoTableConfig = config.getConfig("mobile-profile-update.table")
+  override val coreRepository: MobileProfileRepository = new DynamoDbMobileProfileRepository(dynamoDB, dynamoTableConfig)
+}
+
+trait MobileProfileUpdateAggregateRootBlueprint {
+  val config: Config
+  val monitor: Monitoring
+  val log: Logging
+  val coreRepository: MobileProfileRepository
+  val deserializer: Deserializer[String, MobileProfile]
+
+  val recoveryStrategy = PartialFunction[Throwable, Unit] {
     case NonFatal(t) =>
+      log.writeLog(t.toString)
       monitor.writeMetric("WriteFailure", 1.0)
-      throw t
   }
 
-  private lazy val region = Regions.fromName(System.getenv("AWS_DEFAULT_REGION"))
-  private lazy val dynamoDB : AmazonDynamoDB = new AmazonDynamoDBClient().withRegion(region)
+  val repositoryWithRecovery = new RecoverableMobileProfileRepository(coreRepository, recoveryStrategy)
 
-  private lazy val repository: MobileProfileRepository =
-    new RecoverableMobileProfileRepository(
-      new DynamoDbMobileProfileRepository(dynamoDB, config.getConfig("mobile-profile-update.table")),
-      recoveryStrategy)
-
-  private lazy val deserializer: Deserializer[String, MobileProfile] = new MobileProfileDeserializer
-
-  def writeMessages(messages: Seq[String],
-                    repository: MobileProfileRepository = repository,
-                    deserializer: MobileProfileDeserializer = deserializer): Unit =
-  {
+  def writeMessages(messages: Seq[String]): Unit = {
     messages.foreach { profileAsJson =>
-      repository.save(deserializer.deserialize(profileAsJson))
+      repositoryWithRecovery.save(deserializer.deserialize(profileAsJson))
     }
-    writeLog(messages:_*)
+    log.writeLog(messages:_*)
   }
 }
