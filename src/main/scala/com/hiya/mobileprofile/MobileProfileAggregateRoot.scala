@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
 object MobileProfileAggregateRoot extends Logging {
   private lazy val config = ConfigFactory.load("mobile-profile-update.conf")
   private lazy val cloudWatchClient : AmazonCloudWatch = new AmazonCloudWatchClient()
-  private lazy val monitor: Monitoring = new CloudWatchMonitoring(cloudWatchClient, config)
+  private lazy val monitor: Monitoring = new CloudWatchMonitoring(cloudWatchClient, config.getConfig("mobile-profile-update.metrics"))
 
   private lazy val recoveryStrategy = PartialFunction[Throwable, Unit] {
     case NonFatal(t) =>
@@ -23,16 +23,20 @@ object MobileProfileAggregateRoot extends Logging {
       throw t
   }
 
-  private lazy val region = Regions.getCurrentRegion
+  private lazy val region = Regions.fromName(System.getenv("AWS_DEFAULT_REGION"))
   private lazy val dynamoDB : AmazonDynamoDB = new AmazonDynamoDBClient().withRegion(region)
 
   private lazy val repository: MobileProfileRepository =
     new RecoverableMobileProfileRepository(
-      new DynamoDbMobileProfileRepository(dynamoDB, config.getConfig("mobile-profile-update.table")), recoveryStrategy)
+      new DynamoDbMobileProfileRepository(dynamoDB, config.getConfig("mobile-profile-update.table")),
+      recoveryStrategy)
 
   private lazy val deserializer: Deserializer[String, MobileProfile] = new MobileProfileDeserializer
 
-  def writeMessages(messages: Seq[String]): Unit = {
+  def writeMessages(messages: Seq[String],
+                    repository: MobileProfileRepository = repository,
+                    deserializer: MobileProfileDeserializer = deserializer): Unit =
+  {
     messages.foreach { profileAsJson =>
       repository.save(deserializer.deserialize(profileAsJson))
     }
