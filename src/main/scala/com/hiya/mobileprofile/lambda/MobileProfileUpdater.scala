@@ -1,10 +1,12 @@
-package com.hiya.mobileprofile
+package com.hiya.mobileprofile.lambda
 
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatchClient, AmazonCloudWatch}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBClient, AmazonDynamoDB}
 import com.amazonaws.services.lambda.runtime.events.SNSEvent
 import com.typesafe.config.ConfigFactory
+
+import com.hiya.mobileprofile.MobileProfileUpdateAggregateRoot
 
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal

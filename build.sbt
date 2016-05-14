@@ -8,9 +8,8 @@ scalaVersion := "2.11.8"
 
 resolvers += "Hiya Artifacts" at "s3://hiya-artifact-repository"
 
-libraryDependencies += "org.scalamock" % "scalamock-scalatest-support_2.11" % "3.2.2" % "test"
-
-
+libraryDependencies += "com.hiya" % "mobile-profile-update_2.11" % "0.0.11"
+libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "1.2.0"
 
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
