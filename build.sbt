@@ -2,8 +2,6 @@ name := "mobile-profile-update-lambda"
 
 organization := "com.hiya"
 
-version := "0.0.1"
-
 scalaVersion := "2.11.8"
 
 resolvers += "Hiya Artifacts" at "s3://hiya-artifact-repository"
